@@ -24,6 +24,8 @@ using System.Net.NetworkInformation;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Linq;
+using PingCastle.Rules;
 
 namespace PingCastle
 {
@@ -195,16 +197,16 @@ namespace PingCastle
 
             requiredSettings = new Dictionary<PossibleTasks, string[]>
             {
-                {PossibleTasks.ADHealthCheck,                  new string[] {"Server"}},
+                {PossibleTasks.ADHealthCheck,            new string[] {"Server"}},
                 {PossibleTasks.ADConso,                  new string[] {"Directory"}},
                 //{PossibleTasks.Scanner,                  new string[] {"Server"}},
-                //{PossibleTasks.Export,                  new string[] {"Server"}},
-                {PossibleTasks.Carto,                  new string[] {"Server"}},
-                {PossibleTasks.Regen,                  new string[] {"File"}},
-                {PossibleTasks.Reload,                  new string[] {"File"}},
-                {PossibleTasks.UploadAllRports,                  new string[] {"Directory"}},
-                {PossibleTasks.FakeReport,                  new string[] {"Directory"}},
-                {PossibleTasks.CloudHealthCheck,        new string[] {"AzureADCredential"}},
+                //{PossibleTasks.Export,                   new string[] {"Server"}},
+                {PossibleTasks.Carto,                    new string[] {"Server"}},
+                {PossibleTasks.Regen,                    new string[] {"File"}},
+                {PossibleTasks.Reload,                   new string[] {"File"}},
+                {PossibleTasks.UploadAllRports,          new string[] {"Directory"}},
+                {PossibleTasks.FakeReport,               new string[] {"Directory"}},
+                {PossibleTasks.CloudHealthCheck,         new string[] {"AzureADCredential"}},
             };
 
             LoadCustomRules(tasks);
@@ -234,6 +236,8 @@ namespace PingCastle
 
             if (!settings.CheckArgs())
                 return;
+
+            RuleSet<HealthcheckData>.ExcludeRules(settings.excludedRules);
 
             foreach (var a in requestedActions)
             {
@@ -458,6 +462,24 @@ namespace PingCastle
                                 }
                                 settings.Export = exports[exportname];
                                 requestedActions.Add(PossibleTasks.Export);
+                            }
+                            break;
+                        case "--exclude-rules":
+                            if (i + 1 >= args.Length)
+                            {
+                                WriteInRed("argument for --exclude-rules is mandatory");
+                                return false;
+                            }
+
+                            try
+                            {
+                                settings.excludedRules = args[++i].Split(',')
+                                                            .Where(s => !(string.IsNullOrWhiteSpace(s)))
+                                                            .Select(s => s.Trim())
+                                                            .ToList();
+                            } catch (Exception) {
+                                WriteInRed("Unable to parse the exclusion ruleset - must be comma delimited");
+                                return false;
                             }
                             break;
                         case "--filter-date":
@@ -1174,6 +1196,7 @@ namespace PingCastle
             Console.WriteLine("");
             Console.WriteLine("    --datefile        : insert the date into the report filename");
             Console.WriteLine("    --encrypt         : use an RSA key stored in the .config file to crypt the content of the xml report");
+            Console.WriteLine("    --exclude-rules <riskids> : comma delimited list of risk ids to exclude from the health check");
             Console.WriteLine("    --level <level>   : specify the amount of data found in the xml file");
             Console.WriteLine("                      : level: Full, Normal, Light");
             Console.WriteLine("    --no-enum-limit   : remove the max 100 users limitation in html report");

@@ -8,6 +8,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Reflection;
 
 namespace PingCastle.Rules
@@ -15,6 +16,7 @@ namespace PingCastle.Rules
     public class RuleSet<T> where T : IRiskEvaluation
     {
         private static Dictionary<string, RuleBase<T>> _cachedRules = null;
+        private static List<string> _excludedRuleIds = new List<string>();
 
         public IInfrastructureSettings InfrastructureSettings { get; set; }
 
@@ -26,7 +28,31 @@ namespace PingCastle.Rules
                 {
                     ReloadRules();
                 }
+                return _cachedRules.Values.Where(r => !_excludedRuleIds.Contains(r.RiskId));
+            }
+        }
+
+        public static IEnumerable<RuleBase<T>> AllRules
+        {
+            get
+            {
+                if (_cachedRules == null || _cachedRules.Count == 0)
+                {
+                    ReloadRules();
+                }
                 return _cachedRules.Values;
+            }
+        }
+
+        public static IEnumerable<RuleBase<T>> ExcludedRules
+        {
+            get
+            {
+                if (_cachedRules == null || _cachedRules.Count == 0)
+                {
+                    ReloadRules();
+                }
+                return _cachedRules.Values.Where(r => _excludedRuleIds.Contains(r.RiskId));
             }
         }
 
@@ -208,6 +234,12 @@ namespace PingCastle.Rules
                                             Math.Max(data.TrustScore, data.AnomalyScore)));
         }
 
+        public static void ExcludeRules(List<string> ruleIds)
+        {
+            _excludedRuleIds = ruleIds;
+            ReloadRules();
+        }
+
         public static string GetRuleDescription(string ruleid)
         {
             if (_cachedRules == null || _cachedRules.Count == 0)
@@ -228,7 +260,6 @@ namespace PingCastle.Rules
             if (_cachedRules.ContainsKey(ruleid))
                 return _cachedRules[ruleid];
             return null;
-
         }
     }
 }
